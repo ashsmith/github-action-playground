@@ -1,0 +1,14 @@
+name: "Read slash command..."
+on:
+  issue_comment:
+    types: [created, updated]
+
+jobs:
+  build:
+    # Job name is Greeting
+    name: Greeting
+    # This job runs on Linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Hello World"
+        run: echo 'Hello world.'
