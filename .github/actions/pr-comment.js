@@ -1,34 +1,63 @@
 const eventPayload = require(process.env.GITHUB_EVENT_PATH);
 const { Octokit } = require("@octokit/action");
+const core = require('@actions/core');
+const fetch = require("node-fetch");
+
 const octokit = new Octokit();
-parseComment();
+const ciBaseUrl = 'https://circleci.com/api/v2';
+
+
+parseComment().catch(err => core.setFailed(`Action failed with error ${err}`));
+
 
 async function parseComment() {
-
-  console.log(eventPayload.comment.body);
-
   const expression = new RegExp(/\/ci ([a-zA-Z]+(?:_[a-zA-Z]+)*)/, 'gm');
   const commandMatches = [ ...eventPayload.comment.body.matchAll(expression)];
-  console.log(commandMatches);
   const commands = commandMatches.map((match) => match[1]);
-  commands.forEach((command) => executeCommand(command));
+  const promises = commands.map((command) => executeCommand(command));
+  return Promise.all(promises);
 }
 
 async function executeCommand(command) {
   switch(command) {
     case "run_acceptance":
-      await triggerAcceptanceSuite();
-      break;
+      return triggerAcceptanceSuite();
     case "help":
-      await showHelp();
-      break;
+      return showHelp();
     default:
-      await unknownCommand();
-      break;
+      return unknownCommand();
   }
 }
 
 async function triggerAcceptanceSuite() {
+  const { data: { head: { ref: branch } } } = await octokit.request(
+    'GET /repos/:repository/pulls/:pr_number',
+    {
+      pr_number: eventPayload.issue.number,
+      repository: process.env.GITHUB_REPOSITORY,
+    }
+  );
+
+  const triggerPipeline = await fetch(
+    `https://circleci.com/api/v2/project/gh/${process.env.GITHUB_REPOSITORY}/pipeline`,
+    {
+      method: 'post',
+      body: JSON.stringify({
+        "branch": branch,
+        "parameters": {
+          "run_integration_tests": true
+        }
+      }),
+      headers: {
+        'Circle-Token': process.env.CIRCLE_TOKEN,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    }
+  );
+
+  console.log(triggerPipeline);
+
   return addCommentReaction("rocket");
 }
 

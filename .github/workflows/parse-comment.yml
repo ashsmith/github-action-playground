@@ -21,4 +21,5 @@ jobs:
       # Run pr-comment.js with Node and pass the authentication token
       - run: node .github/actions/pr-comment.js
         env:
+          CIRCLE_TOKEN: ${{ secrets.CIRCLE_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
